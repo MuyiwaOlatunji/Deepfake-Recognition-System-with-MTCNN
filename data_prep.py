@@ -2,8 +2,8 @@ import os
 import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
-import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import tensorflow as tf
 import pandas as pd
 import logging
 
@@ -55,38 +55,43 @@ for split_name, (split_paths, split_labels) in split_data.items():
     df.to_csv(f'{split_name}_split.csv', index=False)
     logging.info(f"Saved {split_name} split with {len(split_paths)} images")
 
-# Data augmentation and preprocessing
+# Data augmentation
 logging.info("Setting up data augmentation...")
 datagen = ImageDataGenerator(
     rescale=1./255,
-    rotation_range=20,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    horizontal_flip=True
+    rotation_range=15,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    shear_range=0.1,
+    zoom_range=0.1,
+    horizontal_flip=True,
+    brightness_range=[0.8, 1.2],
+    fill_mode='nearest'
 )
 
 # Function to create data generator
-def create_generator(paths, labels, batch_size=16):
+def create_generator(paths, labels, batch_size=8):
     def gen():
-        for img_path, label in zip(paths, labels):
-            img = cv2.imread(img_path)
+        for path, label in zip(paths, labels):
+            img = cv2.imread(path)
             if img is None:
-                logging.warning(f"Failed to load image: {img_path}")
+                logging.warning(f"Failed to load image: {path}")
                 continue
             img = cv2.resize(img, (64, 64))
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            yield img, label
+            img = datagen.random_transform(img.astype('float32'))
+            yield img / 255.0, label
     dataset = tf.data.Dataset.from_generator(
         gen,
         output_signature=(
             tf.TensorSpec(shape=(64, 64, 3), dtype=tf.float32),
             tf.TensorSpec(shape=(), dtype=tf.int32)
         )
-    ).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    ).batch(batch_size).prefetch(tf.data.AUTOTUNE).cache()
     return dataset
 
 # Create datasets
-batch_size = 16
+batch_size = 8
 train_dataset = create_generator(paths_train, y_train, batch_size)
 val_dataset = create_generator(paths_val, y_val, batch_size)
 test_dataset = create_generator(paths_test, y_test, batch_size)
