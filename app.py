@@ -32,6 +32,8 @@ detector = MTCNN()
 # Preprocessing
 datagen = ImageDataGenerator(rescale=1./255)
 
+# ... (previous imports and setup remain the same)
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -59,9 +61,9 @@ def index():
             
             predictions = []
             frame_count = 0
-            max_frames = 50  # Limit to 50 frames
-            skip_frames = 10  # Process every 10th frame
-            batch_size = 8  # Process frames in batches
+            max_frames = 50
+            skip_frames = 10
+            batch_size = 8
             batch_frames = []
 
             while cap.isOpened() and frame_count < max_frames:
@@ -83,7 +85,7 @@ def index():
                             logging.warning(f"Empty face image at frame {frame_count}")
                             frame_count += 1
                             continue
-                        face_img = cv2.resize(face_img, (64, 64))  # Match training resolution
+                        face_img = cv2.resize(face_img, (96, 96))
                         face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
                         face_img = face_img.astype('float32')
                         batch_frames.append(face_img)
@@ -91,7 +93,6 @@ def index():
                         logging.warning(f"Invalid face bounding box at frame {frame_count}")
                 frame_count += 1
 
-                # Process batch
                 if len(batch_frames) == batch_size or (frame_count >= max_frames and batch_frames):
                     batch_frames = np.array(batch_frames)
                     batch_frames = datagen.standardize(batch_frames)
@@ -103,7 +104,6 @@ def index():
                     batch_frames = []
                     logging.info(f"Memory usage: {psutil.virtual_memory().percent}%")
             
-            # Process remaining frames
             if batch_frames:
                 batch_frames = np.array(batch_frames)
                 batch_frames = datagen.standardize(batch_frames)
@@ -113,11 +113,9 @@ def index():
                 except Exception as e:
                     logging.warning(f"Prediction failed for remaining frames: {e}")
             
-            # Release resources
             cap.release()
             cv2.destroyAllWindows()
             
-            # Delete temporary file
             for attempt in range(10):
                 try:
                     os.unlink(temp_filename)
@@ -125,7 +123,7 @@ def index():
                     break
                 except PermissionError:
                     logging.warning(f"Attempt {attempt + 1}: PermissionError deleting {temp_filename}. Retrying...")
-                    time.sleep(0.2)
+                    time.sleep(0.5)
                 except Exception as e:
                     logging.error(f"Failed to delete {temp_filename}: {e}")
                     break
@@ -133,9 +131,8 @@ def index():
             if not predictions:
                 return render_template('index.html', result="No faces detected in the video")
             
-            # Aggregate predictions with smoothing
             if predictions:
-                alpha = 0.3  # Smoothing factor
+                alpha = 0.3
                 smoothed_preds = [predictions[0]]
                 for i in range(1, len(predictions)):
                     smoothed_preds.append(alpha * predictions[i] + (1 - alpha) * smoothed_preds[-1])

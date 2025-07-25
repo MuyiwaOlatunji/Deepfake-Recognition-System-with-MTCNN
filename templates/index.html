@@ -20,7 +20,7 @@
             <p>Processing video...</p>
         </div>
         {% if result %}
-            <div id="result" class="result">
+            <div id="result" class="result {{ 'real' if 'Real' in result else 'fake' }}">
                 <h2>Prediction: {{ result }}</h2>
             </div>
         {% endif %}
